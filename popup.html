@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Automações TASY</title>
+<link rel="stylesheet" href="painel.css">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body class="popup">
+  <header class="p-topo">
+    <span class="logo">◉</span>
+    <div class="p-marca">
+      <h1>Automações TASY</h1>
+      <p class="sub">Tomografia e ultrassonografia</p>
+    </div>
+    <button id="config" class="icone" title="Configurações">⚙</button>
+  </header>
+
+  <div class="p-sessoes">
+    <span class="chip" id="chipPortal"><i></i><b>Portal</b> <span>—</span></span>
+    <span class="chip" id="chipTasy"><i></i><b>Tasy</b> <span>—</span></span>
+  </div>
+
+  <div class="avisos p-avisos" id="avisos"></div>
+
+  <section class="p-cartoes" id="cartoes"></section>
+
+  <section class="p-lista">
+    <div class="p-titulo">Pendentes <span class="sub" id="conta"></span></div>
+    <ul id="lista"></ul>
+    <p class="sub vazio-p" id="vazio" hidden>Nada pendente agora.</p>
+  </section>
+
+  <footer class="p-acoes">
+    <button id="painel" class="btn">⤢ Abrir painel</button>
+    <button id="checar" class="btn fantasma">↻ Checar agora</button>
+  </footer>
+
+  <script src="lib/regras.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

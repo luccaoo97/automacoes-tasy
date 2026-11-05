@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Automações TASY",
+  "version": "0.30.1",
+  "description": "Painel de exames Tasy e PACS, Agenda de Exames e acesso ao prontuário. Sem IA no uso diário.",
+  "permissions": ["storage", "notifications", "tabs", "alarms", "scripting", "activeTab"],
+  "host_permissions": [
+    "https://portalvuemotion.redesantacatarina.org.br/*",
+    "https://producao-tasy.acsc.org.br/*",
+    "https://ntfy.sh/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://portalvuemotion.redesantacatarina.org.br/*"],
+      "js": ["gancho.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://portalvuemotion.redesantacatarina.org.br/*"],
+      "js": ["lib/regras.js", "lib/login.js", "content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://producao-tasy.acsc.org.br/*"],
+      "js": ["gancho-tasy.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://producao-tasy.acsc.org.br/*"],
+      "js": ["nota-tasy.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://producao-tasy.acsc.org.br/*"],
+      "js": ["lib/agenda.js", "lib/regras.js", "lib/login.js", "content-tasy.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "options_ui": { "page": "config.html", "open_in_tab": true },
+  "icons": { "128": "icon.png" },
+  "action": { "default_title": "Automações TASY", "default_popup": "popup.html" }
+}

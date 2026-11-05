@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automações TASY</title>
+<link rel="stylesheet" href="painel.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <span class="logo">◉</span>
+      <div>
+        <h1>Automações TASY</h1>
+        <p class="sub">Gestão de exames · Agenda de Exames</p>
+      </div>
+    </div>
+    <div class="sessoes">
+      <span class="chip" id="chipPortal"><i></i><b>Portal</b> <span>—</span></span>
+      <span class="chip" id="chipTasy"><i></i><b>Tasy</b> <span>—</span></span>
+    </div>
+    <form class="busca-paciente" id="buscaPacienteForm" role="search" autocomplete="off">
+      <input type="search" id="buscaPaciente" placeholder="Paciente ou nº do atendimento" title="Abre o prontuário do paciente no TASY já em Notas clínicas" aria-label="Paciente ou número do atendimento">
+      <button class="btn pequeno" type="submit">Abrir</button>
+      <div class="busca-paciente-lista" id="buscaPacienteLista" hidden></div>
+      <span class="sub" id="buscaPacienteMsg" role="status" aria-live="polite"></span>
+    </form>
+    <div class="acoes">
+      <button id="checar" class="btn">↻ Checar agora</button>
+      <button id="config" class="btn fantasma">⚙ Configurações</button>
+    </div>
+  </header>
+
+  <p id="modoAviso" class="modo-aviso" hidden></p>
+  <nav class="abas-painel" aria-label="Área do painel">
+    <button id="abaGestao" class="ativo" aria-pressed="true" aria-controls="gestao">Gestão de exames</button>
+    <button id="abaAgenda" aria-pressed="false" aria-controls="agenda">Agenda de Exames</button>
+  </nav>
+
+  <section id="gestao" aria-label="Gestão de exames">
+  <section class="cartoes" id="cartoes"></section>
+
+  <section class="barra">
+    <div class="segmentos" id="segTipo">
+      <button data-tipo="TC" class="ativo">TC</button>
+      <button data-tipo="US">US</button>
+    </div>
+    <label class="alternar"><input type="checkbox" id="verLaudados"> Mostrar laudados</label>
+    <input type="search" id="busca" placeholder="Buscar paciente, exame, indicação…">
+    <span class="conta" id="conta"></span>
+    <span class="fonte" title="Tamanho da letra">
+      <button id="fonteMenos">A−</button><span id="fonteVal">13</span><button id="fonteMais">A+</button>
+    </span>
+    <details class="colunas-menu"><summary class="btn fantasma pequeno">Colunas</summary><div id="painelColunasMenu"></div></details>
+    <button id="colunasPadrao" class="btn fantasma pequeno" title="Restaura ordem, largura e visibilidade">Colunas padrão</button>
+  </section>
+
+  <div class="avisos" id="avisos"></div>
+
+  <main class="tabela-caixa">
+    <table class="tabela" id="tabela">
+      <thead>
+        <tr id="cabecalho"></tr>
+      </thead>
+      <tbody id="linhas"></tbody>
+    </table>
+    <p class="vazio" id="vazio" hidden>Nenhum exame para mostrar.</p>
+  </main>
+
+  </section>
+
+  <section id="agenda" class="agenda" aria-labelledby="agendaTitulo" hidden>
+    <h2 id="agendaTitulo">Agenda de Exames</h2>
+    <div class="agenda-filtros">
+      <label for="agendaSala">Sala</label><select id="agendaSala"></select>
+      <label for="agendaData">Dia</label>
+      <button id="agendaAnterior" class="btn fantasma" aria-label="Dia anterior">‹</button>
+      <input id="agendaData" type="date" required>
+      <button id="agendaProximo" class="btn fantasma" aria-label="Próximo dia">›</button>
+      <button id="agendaHoje" class="btn fantasma">Hoje</button>
+      <button id="agendaAtualizar" class="btn">Atualizar</button>
+      <label class="alternar"><input id="agendaOcultarLivres" type="checkbox"> Ocultar livres</label>
+      <details class="colunas-menu"><summary class="btn fantasma pequeno">Colunas</summary><div id="agendaColunasMenu"></div></details>
+      <button id="agendaColunasPadrao" class="btn fantasma pequeno">Colunas padrão</button>
+    </div>
+    <p id="agendaStatus" role="status" aria-live="polite"></p>
+    <div class="agenda-tabela-caixa" id="agendaCaixa">
+      <table id="agendaTabela" class="tabela agenda-tabela">
+        <thead><tr id="agendaCabecalho"></tr></thead>
+        <tbody id="agendaLinhas"></tbody>
+      </table>
+      <p id="agendaVazio" class="vazio">Sem agenda carregada para este dia.</p>
+    </div>
+    <p class="sub">Atualização a cada 2 minutos com o TASY aberto. Nome: evoluções médicas. Horário ou exame: prontuário. Rodinha do mouse sobre a agenda: para baixo vai à direita, para cima à esquerda.</p>
+  </section>
+
+  <aside class="gaveta" id="gaveta" role="dialog" aria-modal="true" aria-labelledby="gTitulo" tabindex="-1" hidden>
+    <div class="gaveta-topo">
+      <div>
+        <h2 id="gTitulo"></h2>
+        <p class="sub" id="gSub"></p>
+      </div>
+      <button class="fechar" id="gFechar" title="Fechar (Esc)">✕</button>
+    </div>
+    <div class="gaveta-corpo" id="gCorpo"></div>
+  </aside>
+  <div class="veu" id="veu" hidden></div>
+
+  <script src="lib/regras.js"></script>
+  <script src="lib/agenda.js"></script>
+  <script src="painel.js"></script>
+</body>
+</html>

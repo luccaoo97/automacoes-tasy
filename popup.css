@@ -1,0 +1,30 @@
+/* janelinha do ícone — usa as cores e peças do painel.css */
+body.popup { width: 380px; margin: 0; }
+.p-topo { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--cartao); border-bottom: 1px solid var(--linha); }
+.p-topo .logo { width: 32px; height: 32px; font-size: 17px; border-radius: 9px; }
+.p-marca { flex: 1; }
+.p-marca h1 { font-size: 15px; }
+.icone { border: 1px solid var(--linha); background: var(--fundo); color: var(--texto); border-radius: 8px; width: 32px; height: 32px; font-size: 16px; }
+.icone:hover { background: var(--realce); }
+.p-sessoes { display: flex; gap: 6px; padding: 10px 14px 0; flex-wrap: wrap; }
+.p-sessoes .chip { font-size: 11.5px; padding: 4px 9px; }
+.p-avisos { padding: 8px 14px 0; }
+.p-avisos div { margin-bottom: 4px; padding: 6px 10px; font-size: 12px; }
+.p-cartoes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 14px; }
+.p-cartoes .cartao { padding: 6px 8px; border-radius: 9px; cursor: default; }
+.p-cartoes .cartao:hover { transform: none; }
+.p-cartoes .n { font-size: 20px; }
+.p-cartoes .r { font-size: 11px; }
+.p-lista { margin: 0 14px; background: var(--cartao); border-radius: 10px; box-shadow: var(--sombra); }
+.p-titulo { padding: 8px 12px; font-weight: 600; border-bottom: 1px solid var(--linha); }
+.p-lista ul { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow: auto; }
+.p-lista li { display: flex; align-items: center; gap: 9px; padding: 7px 12px; border-bottom: 1px solid var(--linha); }
+.p-lista li:last-child { border-bottom: 0; }
+.p-item { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.p-item b, .p-item .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-item b { font-weight: 600; }
+.p-hora { display: flex; flex-direction: column; align-items: flex-end; font-size: 11.5px; white-space: nowrap; }
+.p-lista li.mais { justify-content: center; }
+.vazio-p { padding: 14px; text-align: center; }
+.p-acoes { display: flex; gap: 8px; padding: 12px 14px 14px; }
+.p-acoes .btn { flex: 1; }

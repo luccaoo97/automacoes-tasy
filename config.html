@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurações · Automações TASY</title>
+<link rel="stylesheet" href="painel.css">
+<link rel="stylesheet" href="config.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <span class="logo">◉</span>
+      <div>
+        <h1>Configurações</h1>
+        <p class="sub">Automações TASY · <span id="versao"></span></p>
+      </div>
+    </div>
+    <div class="acoes">
+      <span class="salvo" id="salvo">Salvo ✓</span>
+      <button id="abrirPainel" class="btn fantasma">⤢ Abrir painel</button>
+    </div>
+  </header>
+
+  <main class="cfg">
+    <section class="bloco">
+      <h2>Monitoramento</h2>
+      <label class="campo">Endereço do PACS (use {prontuario} / {nome} / {atendimento})<input type="url" id="enderecoPacs" placeholder="https://…"></label>
+      <label class="linha"><span>Monitorar o PACS (portal Vue Motion)</span><input type="checkbox" id="ativo" class="chave"></label>
+      <label class="linha"><span>Checar o PACS a cada</span><span><input type="number" id="intervaloMin" min="1" max="30"> min</span></label>
+      <label class="linha"><span>Ler o Tasy a cada 2 min</span><input type="checkbox" id="tasyAtivo" class="chave"></label>
+      <label class="linha"><span>Ler as notas clínicas (PEP)</span><input type="checkbox" id="notasAtivo" class="chave"></label>
+      <label class="linha"><span>Tamanho da letra do painel</span><span><input type="number" id="fontePainel" min="10" max="18"> px</span></label>
+      <details class="avancado">
+        <summary>Filtro do hospital (avançado)</summary>
+        <label class="linha"><span>Campo</span><input type="text" id="campoHospital"></label>
+        <label class="linha"><span>Valor</span><input type="text" id="textoHospital"></label>
+      </details>
+    </section>
+
+    <section class="bloco">
+      <h2>Avisos</h2>
+      <label class="linha"><span>Som (bipe) quando chega exame novo</span><input type="checkbox" id="som" class="chave"></label>
+      <label class="linha"><span>Exame solicitado no Tasy</span><input type="checkbox" id="avisoSolicitado" class="chave"></label>
+      <label class="linha"><span>Paciente chegou no setor</span><input type="checkbox" id="avisoChegou" class="chave"></label>
+      <label class="linha"><span>Em exame</span><input type="checkbox" id="avisoEmExame" class="chave"></label>
+    </section>
+
+    <section class="bloco">
+      <h2>Aviso no celular (ntfy)</h2>
+      <p class="dica">Instale o app <b>ntfy</b>, toque em <b>+</b> e assine o tópico abaixo. Vai só o tipo de exame, nunca o nome do paciente.</p>
+      <label class="linha"><span>Avisar no celular</span><input type="checkbox" id="ntfyAtivo" class="chave"></label>
+      <label class="linha"><span>Tópico</span><input type="text" id="ntfyTopico"></label>
+      <div class="botoes"><button id="gerarTopico" class="btn fantasma pequeno">Gerar tópico secreto</button>
+        <button id="testarNtfy" class="btn fantasma pequeno">Enviar teste</button></div>
+    </section>
+
+    <section class="bloco">
+      <h2>Login automático</h2>
+      <p class="dica">Se a sessão cair, a extensão recarrega a página e entra com estes dados (no máximo 3 tentativas). Ficam só
+        neste PC, no perfil do Chrome — não vão para a conta Google nem para a internet.</p>
+      <div class="duas">
+        <div>
+          <h3>Portal Vue Motion</h3>
+          <label class="linha"><span>Entrar sozinho</span><input type="checkbox" id="loginAtivo" class="chave"></label>
+          <label class="campo">Usuário<input type="text" id="loginUsuario" autocomplete="off"></label>
+          <label class="campo">Senha<input type="password" id="loginSenha" autocomplete="new-password"></label>
+          <button id="loginSalvar" class="btn pequeno">Salvar login</button> <span id="loginOk" class="dica"></span>
+        </div>
+        <div>
+          <h3>Tasy</h3>
+          <label class="linha"><span>Entrar sozinho</span><input type="checkbox" id="loginTasyAtivo" class="chave"></label>
+          <label class="campo">Usuário<input type="text" id="loginTasyUsuario" autocomplete="off"></label>
+          <label class="campo">Senha<input type="password" id="loginTasySenha" autocomplete="new-password"></label>
+          <button id="loginTasySalvar" class="btn pequeno">Salvar login</button> <span id="loginTasyOk" class="dica"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="bloco largo">
+      <h2>Log <span class="dica">(o que a extensão fez — pode copiar e colar na conversa)</span></h2>
+      <pre id="log" class="log"></pre>
+    </section>
+
+    <section class="bloco largo">
+      <h2>Ferramentas de diagnóstico</h2>
+      <p class="dica">Só para descobrir campos quando algo não casa. Nada aqui mostra nomes de pacientes.</p>
+      <div class="botoes">
+        <button id="descobrir" class="btn fantasma pequeno">Ver campos do portal</button>
+        <button id="mapear" class="btn fantasma pequeno">Mapear o Tasy 5 min</button>
+        <button id="verMapa" class="btn fantasma pequeno">Ver mapa</button>
+        <button id="limparMapa" class="btn fantasma pequeno">Limpar mapa</button>
+        <span class="dica" id="contaMapa"></span>
+      </div>
+      <details class="avancado">
+        <summary>Achar o campo do HSI</summary>
+        <p class="dica">Nomes de pacientes do HSI que estão na lista de hoje, um por linha.</p>
+        <textarea id="nomesHsi" rows="3"></textarea>
+        <button id="acharHsi" class="btn fantasma pequeno">Comparar</button>
+      </details>
+      <pre id="saida" class="log" hidden></pre>
+    </section>
+  </main>
+
+  <script src="lib/regras.js"></script>
+  <script src="config.js"></script>
+</body>
+</html>
