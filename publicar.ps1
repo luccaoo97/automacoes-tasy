@@ -9,25 +9,30 @@ param(
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$PastaRaiz = $PSScriptRoot
-$BaseCfg   = Join-Path $env:USERPROFILE "AlertaExamesHSI"
-$TokArq    = Join-Path $BaseCfg "github-publicar.token"
-New-Item -ItemType Directory -Force $BaseCfg | Out-Null
+$PastaRaiz   = $PSScriptRoot
+$BaseCfg     = Join-Path $env:USERPROFILE "AlertaExamesHSI"
+$TokArq      = Join-Path $BaseCfg "github-publicar.token"
+$TokArqLocal = Join-Path $PastaRaiz "github-publicar.token"
+try { New-Item -ItemType Directory -Force $BaseCfg -ErrorAction Stop | Out-Null } catch {}
 
 function Ler-TokenSalvo {
     if ($Token) { return $Token.Trim() }
     if ($env:GITHUB_TOKEN) { return $env:GITHUB_TOKEN.Trim() }
-    if (Test-Path $TokArq) {
+    foreach ($arq in @($TokArq, $TokArqLocal)) {
         try {
-            $s = (Get-Content $TokArq -Raw).Trim() | ConvertTo-SecureString
-            return [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)).Trim()
+            if (Test-Path $arq -ErrorAction Stop) {
+                $s = (Get-Content $arq -Raw -ErrorAction Stop).Trim() | ConvertTo-SecureString
+                return [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)).Trim()
+            }
         } catch {}
     }
     return ""
 }
 
 function Salvar-Token($t) {
-    ConvertTo-SecureString $t -AsPlainText -Force | ConvertFrom-SecureString | Set-Content $TokArq
+    $enc = ConvertTo-SecureString $t -AsPlainText -Force | ConvertFrom-SecureString
+    try { Set-Content -Path $TokArq -Value $enc -ErrorAction Stop } catch {}
+    try { Set-Content -Path $TokArqLocal -Value $enc -ErrorAction Stop } catch {}
 }
 
 function GH-Api($Metodo, $Url, $Corpo = $null) {
@@ -46,6 +51,7 @@ function GH-Api($Metodo, $Url, $Corpo = $null) {
     return Invoke-RestMethod @params
 }
 
+if ($Token) { Salvar-Token $Token.Trim() }
 $script:TokenGH = Ler-TokenSalvo
 $digitado = $false
 for ($tent = 1; $tent -le 3; $tent++) {
@@ -71,13 +77,20 @@ for ($tent = 1; $tent -le 3; $tent++) {
         $user = GH-Api "GET" "https://api.github.com/user"
         break
     } catch {
-        Write-Host "⚠ O GitHub recusou o token ($($_.Exception.Message)). Tente novamente." -ForegroundColor Red
-        $script:TokenGH = ""
-        if (Test-Path $TokArq) { Remove-Item $TokArq -Force }
-        if ($tent -eq 3) { exit 1 }
+        $status = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
+        if ($status -eq 401) {
+            Write-Host "⚠ O GitHub recusou o token ($($_.Exception.Message)). Tente novamente." -ForegroundColor Red
+            $script:TokenGH = ""
+            try { if (Test-Path $TokArq) { Remove-Item $TokArq -Force } } catch {}
+            try { if (Test-Path $TokArqLocal) { Remove-Item $TokArqLocal -Force } } catch {}
+            if ($tent -eq 3 -or $Token) { exit 1 }
+        } else {
+            Write-Host "⚠ Erro de conexão com o GitHub ($($_.Exception.Message))." -ForegroundColor Red
+            exit 1
+        }
     }
 }
-if ($digitado -or $Token) { Salvar-Token $script:TokenGH }
+Salvar-Token $script:TokenGH
 
 $Usuario = $user.login
 $RepoCompleto = "$Usuario/$NomeRepo"
