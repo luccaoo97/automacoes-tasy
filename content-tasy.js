@@ -101,8 +101,10 @@
       const { tasyCampos = {} } = await chrome.storage.local.get("tasyCampos");
       const todas = [];
       let falhas = 0, erro = "";
-      for (const b of bs) {
-        try { todas.push(...await lerUma(b)); } catch (e) { falhas++; erro = e.message; }
+      const resultados = await Promise.allSettled(bs.map((b) => lerUma(b)));
+      for (const res of resultados) {
+        if (res.status === "fulfilled") todas.push(...res.value);
+        else { falhas++; erro = res.reason?.message || String(res.reason || ""); }
       }
       if (falhas === bs.length) {
         log("leitura falhou: " + erro);

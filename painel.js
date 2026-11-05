@@ -149,7 +149,7 @@ function filtrar(linhas) {
   const out = linhas.filter((l) =>
     naAbaAtual(l) &&
     (cartao ? cartao[3](l) : (ui.laudados || !laudado(l))) &&
-    (!b || R.sem([l.nome, l.exame, l.clinico, l.prescritor, l.notas?.resumo, ...(l.notas?.pareceresRadiologia || []).map((p) => `${p.tipo || ""} ${p.texto || ""}`)].join(" ")).includes(b)));
+    (!b || (l._busca ??= R.sem([l.nome, l.exame, l.clinico, l.prescritor, l.notas?.resumo, ...(l.notas?.pareceresRadiologia || []).map((p) => `${p.tipo || ""} ${p.texto || ""}`)].join(" "))).includes(b)));
   if (!ui.col) return R.ordenarPainel(out);
   const f = COLS[ui.col].ord;
   return out.sort((x, y) => { const a = f(x), c = f(y); return (a > c ? 1 : a < c ? -1 : 0) * (ui.asc ? 1 : -1); });
@@ -183,14 +183,24 @@ function desenharTopo() {
   else if (!D.tasyNotasModelo) av.push("Para ler as notas clínicas: abra uma vez as Notas clínicas (PEP) de um paciente da lista.");
   $("avisos").innerHTML = av.map((a) => `<div>${esc(a)}</div>`).join("");
 
-  $("cartoes").innerHTML = CARTOES.map(([k, rot, cor, f]) =>
+  const contCartoes = new Array(CARTOES.length).fill(0);
+  const contExames = { todos: 0, abdome: 0, torax: 0, apendiculares: 0, neuro: 0 };
+  for (const l of LINHAS) {
+    if (naAbaAtual(l)) {
+      for (let i = 0; i < CARTOES.length; i++) if (CARTOES[i][3](l)) contCartoes[i]++;
+    }
+    if (ui.laudados || !laudado(l)) {
+      for (const ch of Object.keys(contExames)) if (R.exameTcFiltro(l, ch)) contExames[ch]++;
+    }
+  }
+  $("cartoes").innerHTML = CARTOES.map(([k, rot, cor], i) =>
     `<div class="cartao ${ui.cartao === k ? "ativo" : ""}" data-k="${esc(k)}" style="--cor:${cor}">
-       <div class="n">${LINHAS.filter((l) => naAbaAtual(l) && f(l)).length}</div><div class="r">${rot}</div></div>`).join("");
+       <div class="n">${contCartoes[i]}</div><div class="r">${rot}</div></div>`).join("");
 
   if ($("segFiltroExame")) {
     document.querySelectorAll("#segFiltroExame button").forEach((bt) => {
       const ch = bt.dataset.exame;
-      const qtd = LINHAS.filter((l) => R.exameTcFiltro(l, ch) && (ui.laudados || !laudado(l))).length;
+      const qtd = contExames[ch] ?? LINHAS.filter((l) => R.exameTcFiltro(l, ch) && (ui.laudados || !laudado(l))).length;
       bt.innerHTML = `${esc(ROTULOS_FILTRO_EXAME[ch] || ch)}<span class="qtd-exame">${qtd}</span>`;
       bt.classList.toggle("ativo", ui.filtroExame === ch);
     });
@@ -449,7 +459,12 @@ $("verLaudados").onchange = (e) => {
   ui.laudados = laudadosPorTipo[chave] = e.target.checked;
   desenhar();
 };
-$("busca").oninput = (e) => { ui.busca = e.target.value; desenhar(); };
+let rafBusca = 0;
+$("busca").oninput = (e) => {
+  ui.busca = e.target.value;
+  cancelAnimationFrame(rafBusca);
+  rafBusca = requestAnimationFrame(desenhar);
+};
 $("cartoes").addEventListener("click", (e) => {
   const c = e.target.closest(".cartao"); if (!c) return;
   ui.cartao = ui.cartao === c.dataset.k ? "" : c.dataset.k;
@@ -753,7 +768,7 @@ async function atualizar() {
   aplicarFonte(+(DEMO ? lerDemo("fontePainel") : D.cfg?.fontePainel) || 13);
   LINHAS = R.linhasPainel(D.tasyEstado, D.vistos, D.tasyNotas, D.tasyAccs).filter((l) => DEMO || R.naJanela(l));
   desenhar();
-  desenharAgenda();
+  if (ui.area === "agenda") desenharAgenda();
   const nt = abertaId && JSON.stringify(LINHAS.find((x) => x.id === abertaId)?.notas || null);
   if (abertaId && !$("gaveta").hidden && nt !== notasDaGaveta) abrirNotas(abertaId);   // evoluções novas chegaram
   notasDaTelaNoModal();
@@ -767,6 +782,6 @@ if (!SEM_BACKEND) {
     espera = setTimeout(atualizar, 400);
   });
 }
-setInterval(desenharAgenda, 30000);
+setInterval(() => { if (ui.area === "agenda") desenharAgenda(); }, 30000);
 setInterval(() => { if (D) desenharTopo(); }, 30000);
 atualizar().then(atualizarAgenda);

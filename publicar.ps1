@@ -169,24 +169,47 @@ try {
 }
 
 $ultimoCommitSha = $refInfo.object.sha
-Write-Host "Enviando $($arquivos.Count) arquivos da extensão para https://github.com/$RepoCompleto ..." -ForegroundColor Cyan
 
+# Busca a árvore atual do GitHub para enviar apenas os arquivos que mudaram (muito mais rápido)
+$shasRemotos = @{}
+try {
+    $arvoreAtual = GH-Api "GET" "https://api.github.com/repos/$RepoCompleto/git/trees/${ultimoCommitSha}?recursive=1"
+    foreach ($item in $arvoreAtual.tree) {
+        if ($item.type -eq "blob") { $shasRemotos[$item.path] = $item.sha }
+    }
+} catch {}
+
+$sha1 = [Security.Cryptography.SHA1]::Create()
 $itensArvore = @()
+$enviados = 0
 foreach ($arq in $arquivos) {
     $caminhoRel = $arq.FullName.Substring($PastaRaiz.Length).TrimStart('\', '/').Replace('\', '/')
     $bytes = [IO.File]::ReadAllBytes($arq.FullName)
-    $b64 = [Convert]::ToBase64String($bytes)
-    $blob = GH-Api "POST" "https://api.github.com/repos/$RepoCompleto/git/blobs" @{
-        content  = $b64
-        encoding = "base64"
+    $cabBlob = [Text.Encoding]::ASCII.GetBytes("blob $($bytes.Length)`0")
+    $buf = New-Object byte[] ($cabBlob.Length + $bytes.Length)
+    [Array]::Copy($cabBlob, 0, $buf, 0, $cabBlob.Length)
+    [Array]::Copy($bytes, 0, $buf, $cabBlob.Length, $bytes.Length)
+    $shaLocal = ([BitConverter]::ToString($sha1.ComputeHash($buf))).Replace("-", "").ToLowerInvariant()
+
+    if ($shasRemotos[$caminhoRel] -eq $shaLocal) {
+        $shaFinal = $shaLocal
+    } else {
+        $b64 = [Convert]::ToBase64String($bytes)
+        $blob = GH-Api "POST" "https://api.github.com/repos/$RepoCompleto/git/blobs" @{
+            content  = $b64
+            encoding = "base64"
+        }
+        $shaFinal = $blob.sha
+        $enviados++
     }
     $itensArvore += @{
         path = $caminhoRel
         mode = "100644"
         type = "blob"
-        sha  = $blob.sha
+        sha  = $shaFinal
     }
 }
+Write-Host "✓ $enviados arquivo(s) modificado(s) enviado(s) (de $($arquivos.Count) no total) para https://github.com/$RepoCompleto" -ForegroundColor Cyan
 
 $novaArvore = GH-Api "POST" "https://api.github.com/repos/$RepoCompleto/git/trees" @{
     tree = $itensArvore
@@ -202,6 +225,14 @@ GH-Api "PATCH" "https://api.github.com/repos/$RepoCompleto/git/refs/heads/$Branc
     sha   = $novoCommit.sha
     force = $true
 } | Out-Null
+
+# Se este computador também tiver a extensão instalada em AlertaExamesHSI\extensao, já atualiza na hora
+$DestLocal = Join-Path $BaseCfg "extensao"
+try {
+    if (Test-Path $DestLocal -ErrorAction Stop) {
+        & robocopy $PastaRaiz $DestLocal /MIR /XF "*.token" "*.log" "*.tmp" /XD ".git" ".vscode" "node_modules" "rea" /NJH /NJS /NFL /NDL /NP /R:1 /W:1 | Out-Null
+    }
+} catch {}
 
 Write-Host ""
 Write-Host "==================================================================" -ForegroundColor Green

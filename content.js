@@ -28,9 +28,9 @@
     return j;
   }
 
-  // TC e US: todas as páginas de hoje/ontem + páginas mais recentes até cobrir os últimos 7 dias
-  let avisouUS = false;
-  async function buscarMod(busca, mod, todas) {
+  // TC e US: todas as páginas de hoje/ontem a cada ciclo + varredura de 7 dias na carga inicial, manual ou a cada 15 min
+  let avisouUS = false, ultimo7dEm = 0;
+  async function buscarMod(busca, mod, todas, incluir7d) {
     const ini = todas.size;
     for (let p = 1; p <= 10; p++) {
       const j = await pedir(busca.url, R.corpoPagina(busca.corpo, p, 200, false, mod));
@@ -38,6 +38,7 @@
       for (const r of l) todas.set(r.Acc, r);
       if (l.length < 200 || (j.TotalPts && todas.size - ini >= j.TotalPts)) break;
     }
+    if (!incluir7d) return;
     const limite7d = Date.now() - 7 * 24 * 36e5;
     for (let p = 1; p <= 10; p++) {
       const j = await pedir(busca.url, R.corpoPagina(busca.corpo, p, 200, true, mod));
@@ -51,11 +52,14 @@
       if (l.length < 200 || antigos > l.length / 2) break;
     }
   }
-  async function buscarTudo(busca) {
+  async function buscarTudo(busca, manual = false) {
     const todas = new Map();
-    await buscarMod(busca, "ct", todas);
-    try { await buscarMod(busca, "us", todas); }
+    const agora = Date.now();
+    const incluir7d = manual || agora - ultimo7dEm > 15 * 60000;
+    await buscarMod(busca, "ct", todas, incluir7d);
+    try { await buscarMod(busca, "us", todas, incluir7d); }
     catch (e) { if (e instanceof SessaoCaiu) throw e; if (!avisouUS) { avisouUS = true; log("busca de US no PACS falhou: " + e.message); } }
+    if (incluir7d) ultimo7dEm = agora;
     return [...todas.values()];
   }
 
@@ -92,7 +96,7 @@
     buscando = true;
     ultimaBuscaEm = agora;
     try {
-      await processar(await buscarTudo(busca));
+      await processar(await buscarTudo(busca, !!manual));
     } catch (e) {
       log("checagem falhou: " + e.message);
       if (e instanceof SessaoCaiu) {
