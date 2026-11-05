@@ -139,6 +139,7 @@ const CARTOES = [
 
 function naAbaAtual(l) {
   if (ui.area === "porExame") return R.exameTcFiltro(l, ui.filtroExame);
+  if (ui.tipo === "TC" && ui.filtroExame && ui.filtroExame !== "todos") return R.exameTcFiltro(l, ui.filtroExame);
   return !ui.tipo || l.tipo === ui.tipo;
 }
 
@@ -156,9 +157,11 @@ function filtrar(linhas) {
 
 // ---------- desenho ----------
 const ROTULOS_FILTRO_EXAME = {
-  todos: "TC Abdome + Tórax",
-  abdome: "TC de Abdome",
-  torax: "TC de Tórax (inclui AngioTC)",
+  todos: "Todas as TCs",
+  abdome: "TC Abdome",
+  torax: "TC Tórax",
+  apendiculares: "TC Apendiculares",
+  neuro: "TC Neuro",
 };
 function desenharTopo() {
   const agora = Date.now();
@@ -208,7 +211,7 @@ function desenhar() {
   desenharTopo();
   desenharCabecalho();
   $("segTipo").hidden = ui.area !== "gestao";
-  if ($("segFiltroExame")) $("segFiltroExame").hidden = ui.area !== "porExame";
+  if ($("segFiltroExame")) $("segFiltroExame").hidden = !(ui.area === "porExame" || (ui.area === "gestao" && ui.tipo === "TC"));
   $("tabela").classList.toggle("gestao-us", ui.area === "gestao" && ui.tipo === "US");
   $("verLaudados").checked = ui.laudados;
   const vis = filtrar(LINHAS);
@@ -428,6 +431,7 @@ document.addEventListener("keydown", (e) => {
 $("segTipo").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   ui.tipo = b.dataset.tipo;
+  ui.filtroExame = "todos";
   ui.laudados = laudadosPorTipo[ui.tipo];
   ui.cartao = ""; ui.col = "";
   carregarColunasGestao(D || {});

@@ -68,12 +68,17 @@
   }
 
   async function lerUma(b) {
-    return R.lerGestao(b, async (body) => {
+    const pedir = async (body) => {
       const r = await fetch(b.url, { method: "POST", credentials: "include", cache: "no-store",
-        headers: cabecalhos(b), body, signal: AbortSignal.timeout(20000) });
+        headers: cabecalhos(b), body, signal: AbortSignal.timeout(25000) });
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.text();
-    });
+    };
+    try {
+      return await R.lerGestao(b, pedir, Date.now(), true);
+    } catch {
+      return await R.lerGestao(b, pedir, Date.now(), false);
+    }
   }
   function logInternacao(exames, origem) {
     const campos = [...new Set(exames.map((e) => e.campoInternado).filter(Boolean))];

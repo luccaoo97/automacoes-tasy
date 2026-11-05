@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Automações TASY",
-  "version": "0.30.5",
+  "version": "0.30.6",
   "description": "Painel de exames Tasy e PACS, Agenda de Exames e acesso ao prontuário. Sem IA no uso diário.",
   "permissions": ["storage", "notifications", "tabs", "alarms", "scripting", "activeTab"],
   "host_permissions": [

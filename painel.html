@@ -46,10 +46,12 @@
       <button data-tipo="TC" class="ativo">TC</button>
       <button data-tipo="US">US</button>
     </div>
-    <div class="segmentos" id="segFiltroExame" hidden>
-      <button data-exame="todos" class="ativo">TC Abdome + Tórax</button>
-      <button data-exame="abdome">TC de Abdome</button>
-      <button data-exame="torax" title="Inclui TC de Tórax e AngioTC de Tórax">TC de Tórax (inclui AngioTC)</button>
+    <div class="segmentos" id="segFiltroExame">
+      <button data-exame="todos" class="ativo">Todas as TCs</button>
+      <button data-exame="abdome" title="TC de Abdome, Pelve e Urotomografia">TC Abdome</button>
+      <button data-exame="torax" title="Inclui TC de Tórax e AngioTC de Tórax">TC Tórax</button>
+      <button data-exame="apendiculares" title="Membros superiores, inferiores e articulações">TC Apendiculares</button>
+      <button data-exame="neuro" title="Crânio, face, pescoço e coluna">TC Neuro</button>
     </div>
     <label class="alternar"><input type="checkbox" id="verLaudados"> Mostrar laudados</label>
     <input type="search" id="busca" placeholder="Buscar paciente, exame, indicação…">

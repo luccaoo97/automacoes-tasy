@@ -28,7 +28,7 @@
     return j;
   }
 
-  // TC e US: todas as páginas de hoje + (até 12 h) a 1ª página dos mais recentes sem data
+  // TC e US: todas as páginas de hoje/ontem + páginas mais recentes até cobrir os últimos 7 dias
   let avisouUS = false;
   async function buscarMod(busca, mod, todas) {
     const ini = todas.size;
@@ -37,6 +37,18 @@
       const l = j?.PtList || [];
       for (const r of l) todas.set(r.Acc, r);
       if (l.length < 200 || (j.TotalPts && todas.size - ini >= j.TotalPts)) break;
+    }
+    const limite7d = Date.now() - 7 * 24 * 36e5;
+    for (let p = 1; p <= 10; p++) {
+      const j = await pedir(busca.url, R.corpoPagina(busca.corpo, p, 200, true, mod));
+      const l = j?.PtList || [];
+      let antigos = 0;
+      for (const r of l) {
+        todas.set(r.Acc, r);
+        const q = R.dataPacs(r.LastScan) || R.dataPacs(r.Date) || R.dataPacs(r.OFDate);
+        if (q && q < limite7d) antigos++;
+      }
+      if (l.length < 200 || antigos > l.length / 2) break;
     }
   }
   async function buscarTudo(busca) {
