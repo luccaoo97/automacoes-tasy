@@ -151,11 +151,16 @@
         return;
       }
       fora = 0;
-      // Prontuário (0.29) abre Notas clínicas, sem Adicionar; pedido externo vai ao item dele. Depois só vigia o SUEP.
-      if (p.modo === "prontuario" || p.modo === "pedido" || p.modo === "notasF8") {
+      // Prontuário (0.29) abre Notas clínicas, sem Adicionar; CPOE vai para a aba/item CPOE; pedido externo vai ao item dele. Depois só vigia o SUEP.
+      if (p.modo === "prontuario" || p.modo === "cpoe" || p.modo === "pedido" || p.modo === "notasF8") {
         const pep = acharVis("li.angular-ui-tree-node span.wtree-span", /^notas? cl[ií]nicas?$/i);
-        if (naRota() && pep) {
-          if (p.modo === "pedido") {
+        const cpoeItem = p.modo === "cpoe" && (acharVis("li.angular-ui-tree-node span.wtree-span, span.wtree-span, [role=treeitem] span, div.wtab span", /^cpoe$/i) || acharVis("li.angular-ui-tree-node span.wtree-span, span.wtree-span", /\bcpoe\b/i));
+        if (naRota() && (pep || cpoeItem)) {
+          if (p.modo === "cpoe") {
+            const alvoCpoe = cpoeItem || await ate(() => acharVis("li.angular-ui-tree-node span.wtree-span, span.wtree-span, [role=treeitem] span, div.wtab span", /^cpoe\b|\bcpoe$/i), 2500);
+            if (alvoCpoe) { clicar(alvoCpoe); log("PEP: CPOE aberto ✓"); }
+            else { if (pep) clicar(pep); log("PEP: item CPOE não localizado na árvore; prontuário aberto"); }
+          } else if (p.modo === "pedido") {
             const pedido = acharVis("li.angular-ui-tree-node span.wtree-span", /^pedido de exame externo$/i);
             if (pedido) { clicar(pedido); log("PEP: Pedido de exame externo aberto por rótulo; URL do arquivo não comprovada"); }
             else log("PEP: Pedido de exame externo não detectado; prontuário aberto como destino disponível");

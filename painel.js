@@ -335,7 +335,7 @@ function abrirNotas(id) {
   const mensagemNotas = l.origem !== "tasy" ? "Sem notas TASY: este item não possui vínculo com o TASY."
     : SEM_BACKEND ? "Sem conexão com o TASY." : resultado ? "" : "Buscando notas no TASY…";
   const temPacs = !!globalThis.Agenda.urlPacs(D?.cfg?.enderecoPacs, l);
-  mostrarModal(l, podeNota ? `<div class="gaveta-acoes"><button class="btn fantasma" id="gProntuario" ${SEM_BACKEND ? "disabled" : ""}>Abrir prontuário</button><button class="btn" id="gNota" ${SEM_BACKEND ? "disabled" : ""}>✎ Adicionar nota clínica</button><button class="btn fantasma" id="gCopiar" title="Copia indicação e resumo evolutivo para colar no laudo">📋 Copiar resumo</button>${l.pedidoExterno ? '<button class="btn fantasma" id="gPedidoExterno">Pedido externo</button>' : ''}${temPacs ? '<button class="btn fantasma" id="gPacs">Exames anteriores (PACS)</button>' : ''}
+  mostrarModal(l, podeNota ? `<div class="gaveta-acoes"><button class="btn fantasma" id="gProntuario" ${SEM_BACKEND ? "disabled" : ""}>Abrir prontuário</button><button class="btn fantasma" id="gCpoe" title="Abre o CPOE deste paciente no Tasy para solicitar novo exame ou prescrever contraste" ${SEM_BACKEND ? "disabled" : ""}>CPOE</button><button class="btn" id="gNota" ${SEM_BACKEND ? "disabled" : ""}>✎ Adicionar nota clínica</button><button class="btn fantasma" id="gCopiar" title="Copia indicação e resumo evolutivo para colar no laudo">📋 Copiar resumo</button>${l.pedidoExterno ? '<button class="btn fantasma" id="gPedidoExterno">Pedido externo</button>' : ''}${temPacs ? '<button class="btn fantasma" id="gPacs">Exames anteriores (PACS)</button>' : ''}
       <span class="sub" id="gNotaMsg">Abre o PEP deste paciente no Tasy, em Notas clínicas › Adicionar</span></div>` : "", mensagemNotas, l.origem === "tasy" ? htmlContraste(l, resultado?.contraste) : "");
   if (resultado) exibirResultadoNotas(resultado);
   for (const [btId, tipo] of [["gPedidoExterno", "abrirPedidoExternoGestao"], ["gPacs", "abrirPacsGestao"]]) {
@@ -351,6 +351,12 @@ function abrirNotas(id) {
     $("gNotaMsg").textContent = "Abrindo prontuário…";
     const r = await chrome.runtime.sendMessage({ tipo: "abrirProntuario", id: id.slice(1) }).catch((e) => ({ erro: e.message }));
     $("gNotaMsg").textContent = r?.erro ? "Não deu: " + r.erro : r?.ok ? "Confira o prontuário na aba do TASY." : "Sem confirmação do TASY.";
+  };
+  if (podeNota && $("gCpoe")) $("gCpoe").onclick = async () => {
+    if (SEM_BACKEND) return;
+    $("gNotaMsg").textContent = "Abrindo CPOE no TASY…";
+    const r = await chrome.runtime.sendMessage({ tipo: "abrirCpoe", id: id.slice(1) }).catch((e) => ({ erro: e.message }));
+    $("gNotaMsg").textContent = r?.erro ? "Não deu: " + r.erro : r?.ok ? "Confira o CPOE na aba do TASY." : "Sem confirmação do TASY.";
   };
   if (podeNota) $("gNota").onclick = async () => {
     $("gNotaMsg").textContent = "Abrindo o Tasy…";
@@ -386,7 +392,7 @@ async function abrirNotasAgenda(linha, chave) {
   abertaId = null; modalPaciente = null;
   const pedido = ++modalPedido;
   mostrarModal({ ...linha, notas: D?.tasyNotas?.[`agenda:${chave}|${linha.id}`] },
-    `<div class="gaveta-acoes"><button class="btn fantasma" id="gProntuario" ${!linha.pessoa || SEM_BACKEND ? "disabled" : ""}>Abrir prontuário</button><button class="btn fantasma" id="gCopiar" title="Copia indicação e resumo evolutivo para colar no laudo">📋 Copiar resumo</button>${linha.pedidoExterno ? '<button class="btn fantasma" id="gPedidoExterno">Pedido externo</button>' : ''}${globalThis.Agenda.urlPacs(D?.cfg?.enderecoPacs, linha) ? '<button class="btn fantasma" id="gPacs">Exames anteriores (PACS)</button>' : ''}<span class="sub" id="gNotaMsg">Buscando as evoluções no TASY…</span></div>`, undefined, htmlContraste(linha));
+    `<div class="gaveta-acoes"><button class="btn fantasma" id="gProntuario" ${!linha.pessoa || SEM_BACKEND ? "disabled" : ""}>Abrir prontuário</button><button class="btn fantasma" id="gCpoe" title="Abre o CPOE deste paciente no Tasy para solicitar novo exame ou prescrever contraste" ${!linha.pessoa || SEM_BACKEND ? "disabled" : ""}>CPOE</button><button class="btn fantasma" id="gCopiar" title="Copia indicação e resumo evolutivo para colar no laudo">📋 Copiar resumo</button>${linha.pedidoExterno ? '<button class="btn fantasma" id="gPedidoExterno">Pedido externo</button>' : ''}${globalThis.Agenda.urlPacs(D?.cfg?.enderecoPacs, linha) ? '<button class="btn fantasma" id="gPacs">Exames anteriores (PACS)</button>' : ''}<span class="sub" id="gNotaMsg">Buscando as evoluções no TASY…</span></div>`, undefined, htmlContraste(linha));
   for (const [id, tipo] of [["gPedidoExterno", "abrirPedidoExternoAgenda"], ["gPacs", "abrirPacsAgenda"]]) {
     const visivel = id === "gPedidoExterno" ? linha.pedidoExterno : globalThis.Agenda.urlPacs(D?.cfg?.enderecoPacs, linha);
     if (visivel) $(id).onclick = async () => {
@@ -398,6 +404,11 @@ async function abrirNotasAgenda(linha, chave) {
   $("gProntuario").onclick = async () => {
     const r = await chrome.runtime.sendMessage({ tipo: "abrirProntuarioAgenda", chave, id: linha.id }).catch(() => ({ erro: A.SESSAO }));
     if (pedido === modalPedido) $("gNotaMsg").textContent = r?.ok ? "Confira o prontuário na aba do TASY." : r?.erro || A.SESSAO;
+  };
+  if ($("gCpoe")) $("gCpoe").onclick = async () => {
+    $("gNotaMsg").textContent = "Abrindo CPOE no TASY…";
+    const r = await chrome.runtime.sendMessage({ tipo: "abrirCpoeAgenda", chave, id: linha.id }).catch(() => ({ erro: A.SESSAO }));
+    if (pedido === modalPedido) $("gNotaMsg").textContent = r?.ok ? "Confira o CPOE na aba do TASY." : r?.erro || A.SESSAO;
   };
   if (SEM_BACKEND) { exibirResultadoNotas({ erro: "Sem conexão com o TASY." }); return; }
   const r = await chrome.runtime.sendMessage({ tipo: "notasAgoraAgenda", chave, id: linha.id, exame: linha.exame }).catch(() => ({ erro: A.SESSAO }));

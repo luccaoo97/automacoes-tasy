@@ -128,7 +128,7 @@ async function abrirPep(ex, modo, usarRota = false) {
   if (!rota) usarRota = false;
   // Em "notasF8" (carregamento do resumo para o modal), mantém o usuário na página do painel sem trocar de aba.
   const emSegundoPlano = modo === "notasF8";
-  await chrome.storage.local.set({ tasyAbrirNota: { pessoa: ex.pessoa, atendimento: ex.atendimento, rota, usarRota, modo: ["prontuario", "pedido", "notasF8"].includes(modo) ? modo : "nota", tentativas: 0, ate: Date.now() + 3 * 60000 } });
+  await chrome.storage.local.set({ tasyAbrirNota: { pessoa: ex.pessoa, atendimento: ex.atendimento, rota, usarRota, modo: ["prontuario", "cpoe", "pedido", "notasF8"].includes(modo) ? modo : "nota", tentativas: 0, ate: Date.now() + 3 * 60000 } });
   const abas = await chrome.tabs.query({ url: "https://producao-tasy.acsc.org.br/*" });
   const aba = abas.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
   // o Tasy não deixa duas abas abertas: usa a que já existe. Do jeito testado na tela real (16/10): troca a rota com
@@ -166,7 +166,7 @@ async function abrirPep(ex, modo, usarRota = false) {
   }
   const t = aba || await chrome.tabs.create({ url: "https://producao-tasy.acsc.org.br/" + rota, active: !emSegundoPlano });
   if (!emSegundoPlano) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
-  anotar(modo === "prontuario" ? "Tasy: abrindo o prontuário" : modo === "pedido" ? "Tasy: abrindo o PEP para consultar pedido externo" : modo === "notasF8" ? "Tasy: carregando notas clínicas em segundo plano" : "Tasy: abrindo o PEP para adicionar nota clínica");
+  anotar(modo === "prontuario" ? "Tasy: abrindo o prontuário" : modo === "cpoe" ? "Tasy: abrindo o PEP em CPOE" : modo === "pedido" ? "Tasy: abrindo o PEP para consultar pedido externo" : modo === "notasF8" ? "Tasy: carregando notas clínicas em segundo plano" : "Tasy: abrindo o PEP para adicionar nota clínica");
   return { ok: true };
 }
 
@@ -233,10 +233,10 @@ chrome.runtime.onMessage.addListener((m, sender, responder) => {
     tarefa.then(responder, () => responder({ erro: A.SESSAO }));
     return true;
   }
-  if (m.tipo === "abrirProntuarioAgenda") {
+  if (m.tipo === "abrirProntuarioAgenda" || m.tipo === "abrirCpoeAgenda") {
     chrome.storage.local.get("tasyAgendaCache").then(({ tasyAgendaCache = {} }) => {
       const ex = tasyAgendaCache[m.chave]?.linhas?.find((l) => l.id === m.id);
-      return ex?.pessoa ? abrirPep(ex, "prontuario", true) : { erro: "Agendamento sem código de pessoa física." };
+      return ex?.pessoa ? abrirPep(ex, m.tipo === "abrirCpoeAgenda" ? "cpoe" : "prontuario", true) : { erro: "Agendamento sem código de pessoa física." };
     }).then(responder, (e) => responder({ erro: e.message }));
     return true;
   }
@@ -305,7 +305,7 @@ chrome.runtime.onMessage.addListener((m, sender, responder) => {
     }).then(responder, (e) => responder({ erro: e.message }));
     return true;
   }
-  if (m.tipo === "abrirNotaClinica" || m.tipo === "abrirProntuario") { abrirNotaClinica(m.id, m.tipo === "abrirProntuario" ? "prontuario" : "nota").then(responder, (e) => responder({ erro: e.message })); return true; }
+  if (m.tipo === "abrirNotaClinica" || m.tipo === "abrirProntuario" || m.tipo === "abrirCpoe") { abrirNotaClinica(m.id, m.tipo === "abrirProntuario" ? "prontuario" : m.tipo === "abrirCpoe" ? "cpoe" : "nota").then(responder, (e) => responder({ erro: e.message })); return true; }
   if (m.tipo === "checarTasyTopo" && sender.tab) chrome.tabs.sendMessage(sender.tab.id, { tipo: "checarTasy" }, { frameId: 0 }).catch(() => {});
   if (m.tipo === "tasySessao") chrome.storage.local.set(m.ok ? { tasySessaoOk: true, tasyCaiuEm: null } : { tasySessaoOk: false, tasyCaiuEm: Date.now() });
   if (m.tipo === "log") anotar(m.msg);
