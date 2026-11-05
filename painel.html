@@ -12,7 +12,7 @@
       <span class="logo">◉</span>
       <div>
         <h1>Automações TASY</h1>
-        <p class="sub">Gestão de exames · Agenda de Exames</p>
+        <p class="sub">Gestão de exames · Por Tipo de Exame · Agenda de Exames</p>
       </div>
     </div>
     <div class="sessoes">
@@ -34,6 +34,7 @@
   <p id="modoAviso" class="modo-aviso" hidden></p>
   <nav class="abas-painel" aria-label="Área do painel">
     <button id="abaGestao" class="ativo" aria-pressed="true" aria-controls="gestao">Gestão de exames</button>
+    <button id="abaPorExame" aria-pressed="false" aria-controls="gestao">Por Tipo de Exame</button>
     <button id="abaAgenda" aria-pressed="false" aria-controls="agenda">Agenda de Exames</button>
   </nav>
 
@@ -44,6 +45,11 @@
     <div class="segmentos" id="segTipo">
       <button data-tipo="TC" class="ativo">TC</button>
       <button data-tipo="US">US</button>
+    </div>
+    <div class="segmentos" id="segFiltroExame" hidden>
+      <button data-exame="todos" class="ativo">TC Abdome + Tórax</button>
+      <button data-exame="abdome">TC de Abdome</button>
+      <button data-exame="torax" title="Inclui TC de Tórax e AngioTC de Tórax">TC de Tórax (inclui AngioTC)</button>
     </div>
     <label class="alternar"><input type="checkbox" id="verLaudados"> Mostrar laudados</label>
     <input type="search" id="busca" placeholder="Buscar paciente, exame, indicação…">

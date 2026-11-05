@@ -188,3 +188,11 @@ button:disabled { cursor: default; opacity: .5; }
 .busca-paciente-lista button:hover, .busca-paciente-lista button:focus { background: #e4f1ff; }
 /* 0.29: paciente "bloqueado" na Agenda sem negrito */
 .agenda-tabela tr.bloqueado .agenda-paciente, .agenda-tabela tr.bloqueado .agenda-exame { font-weight: 400; }
+/* Aba Por Tipo de Exame e Pareceres da Radiologia */
+.segmentos button .qtd-exame { display: inline-block; margin-left: 5px; padding: 0 6px; border-radius: 999px; font-size: .82em; background: rgba(154, 163, 175, .2); color: inherit; }
+.segmentos button.ativo .qtd-exame { background: rgba(255, 255, 255, .25); color: #fff; }
+.pareceres-rad { margin: 14px 0 18px; padding: 12px 14px; border: 1px solid rgba(47, 111, 228, .35); border-left: 4px solid var(--azul); border-radius: 10px; background: var(--realce); }
+.pareceres-rad h3 { margin: 0 0 8px !important; color: var(--azul); display: flex; align-items: center; gap: 8px; }
+.pareceres-rad .caixa { background: var(--cartao); border: 1px solid var(--linha); margin-bottom: 8px; }
+.pareceres-rad .caixa:last-child { margin-bottom: 0; }
+.badge-rad { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--azul); color: #fff; }

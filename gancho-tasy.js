@@ -1,11 +1,16 @@
 // Leitura passiva dos pedidos nativos. A repetição usa fetch do mundo ISOLATED.
-// 0.29: repassa também o cabeçalho de sessão de QUALQUER chamada do TasyAppServer (só cabeçalhos, sem corpo), para as
-// leituras guardadas continuarem valendo depois de um novo login sem o Artur reabrir Gestão/Agenda/Notas.
+// 0.29+: repassa também o cabeçalho de sessão de QUALQUER chamada do TasyAppServer (só cabeçalhos, sem corpo), para as
+// leituras guardadas continuarem valendo depois de um novo login ou atualização da extensão sem precisar dar F5.
 (() => {
-  if (window.__alertaHsiTasyAgendaV4) return;
+  if (window.__alertaHsiTasyAgendaV4) {
+    if (window.__alertaHsiUltimoCab) {
+      window.postMessage({ __alertaHsiTasy: 1, versao: 4, tipo: "cab", cab: window.__alertaHsiUltimoCab }, location.origin);
+    }
+    return;
+  }
   window.__alertaHsiTasyAgendaV4 = true;
   window.__alertaHsiTasy = true;
-  const ehLista = (u) => /(WCPanelDataProvider|DataSourceProvider)\/getDataSource/i.test(String(u || ""));
+  const ehLista = (u) => /\/TasyAppServer\/resources\/service\//i.test(String(u || "")) && !/\/keepAlive|\/ping/i.test(String(u || ""));
   const ligado = () => { try { return +localStorage.getItem("alertaHsi.mapear") > Date.now(); } catch { return false; } };
   const repassar = (tipo, url, metodo, corpo, resp, cab) => {
     if (!ehLista(url) && !ligado()) return;
@@ -16,6 +21,7 @@
   let ultimoCab = "";
   const repassarCab = (url, cab) => {
     if (!ehServidor(url) || !cab || !Object.keys(cab).length) return;
+    window.__alertaHsiUltimoCab = cab;
     const j = JSON.stringify(cab);
     if (j === ultimoCab) return;
     ultimoCab = j;
@@ -61,7 +67,12 @@
     } catch {}
   };
   window.addEventListener("message", (e) => {
-    if (e.source === window && e.origin === location.origin && e.data?.__alertaHsiKeepAlive) pulsoAtividade();
+    if (e.source === window && e.origin === location.origin) {
+      if (e.data?.__alertaHsiKeepAlive) pulsoAtividade();
+      if (e.data?.__alertaHsiPedirCab && window.__alertaHsiUltimoCab) {
+        window.postMessage({ __alertaHsiTasy: 1, versao: 4, tipo: "cab", cab: window.__alertaHsiUltimoCab }, location.origin);
+      }
+    }
   });
   setInterval(pulsoAtividade, 45000);
 })();

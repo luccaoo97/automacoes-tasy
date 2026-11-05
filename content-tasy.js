@@ -16,10 +16,45 @@
   const log = (msg) => enviar({ tipo: "log", msg: "Tasy: " + msg });
 
   // ---------- Gestão de exames ----------
-  // 0.29: cabeçalho de sessão mais recente visto em qualquer chamada do TASY; vale por cima do guardado no molde
+  // 0.29+: cabeçalho de sessão mais recente visto em qualquer chamada do TASY; vale por cima do guardado no molde
   let cabAtual = {};
+  chrome.storage.local.get("tasyCabAtual").then(({ tasyCabAtual }) => {
+    if (tasyCabAtual && typeof tasyCabAtual === "object" && !Object.keys(cabAtual).length) cabAtual = tasyCabAtual;
+    try { window.postMessage({ __alertaHsiPedirCab: 1 }, location.origin); } catch {}
+  }).catch(() => {});
   const cabecalhos = (m) => ({ ...(m?.cab || { "Content-Type": "application/json" }), ...cabAtual });
-  const linhasDe = (t) => { try { return JSON.parse(t)?.dados?.linhasResultSet || null; } catch { return null; } };
+  const linhasDe = (t) => {
+    try {
+      const j = typeof t === "string" ? JSON.parse(t) : t;
+      if (Array.isArray(j?.dados?.linhasResultSet)) return j.dados.linhasResultSet;
+      if (Array.isArray(j?.linhasResultSet)) return j.linhasResultSet;
+      if (Array.isArray(j?.result?.linhasResultSet)) return j.result.linhasResultSet;
+      if (Array.isArray(j?.dados)) return j.dados;
+      if (Array.isArray(j?.result)) return j.result;
+      return null;
+    } catch { return null; }
+  };
+  const ehItemEvolucao = (r) => r && typeof r === "object" && ("DS_EVOLUCAO" in r || "DS_TEXTO" in r || "DS_NOTA" in r || "DS_NOTA_CLINICA" in r || "TX_EVOLUCAO" in r || "NR_SEQ_EVOLUCAO" in r || "DT_EVOLUCAO" in r);
+  const extrairLinhasEvolucao = (t) => {
+    const base = linhasDe(t);
+    if (base?.some(ehItemEvolucao)) return base;
+    try {
+      const j = typeof t === "string" ? JSON.parse(t) : t;
+      const buscar = (o, prof = 0) => {
+        if (!o || typeof o !== "object" || prof > 4) return null;
+        if (Array.isArray(o)) {
+          if (o.some(ehItemEvolucao)) return o;
+          return null;
+        }
+        for (const v of Object.values(o)) {
+          const achou = buscar(v, prof + 1);
+          if (achou) return achou;
+        }
+        return null;
+      };
+      return buscar(j) || base;
+    } catch { return base; }
+  };
   const MAX_FILTROS = 4;
 
   async function buscas() {
@@ -209,12 +244,19 @@
     if (d.tipo === "cab") {
       const novo = d.cab && typeof d.cab === "object" ? Object.fromEntries(Object.entries(d.cab).filter(([k, v]) => typeof k === "string" && typeof v === "string")) : {};
       const primeiro = !Object.keys(cabAtual).length;
-      cabAtual = novo;
+      if (Object.keys(novo).length) {
+        cabAtual = { ...cabAtual, ...novo };
+        chrome.storage.local.set({ tasyCabAtual: cabAtual }).catch(() => {});
+      }
       if (primeiro && Object.keys(novo).length && TOPO) { log("sessão: cabeçalho atual do TASY captado; leituras guardadas seguem sem reabrir as telas"); setTimeout(repetir, 1500); }
       return;
     }
     if (d.lista) {
-      const l = linhasDe(d.resp);
+      if (d.cab && typeof d.cab === "object" && Object.keys(d.cab).length) {
+        cabAtual = { ...cabAtual, ...Object.fromEntries(Object.entries(d.cab).filter(([k, v]) => typeof k === "string" && typeof v === "string")) };
+        chrome.storage.local.set({ tasyCabAtual: cabAtual }).catch(() => {});
+      }
+      const l = extrairLinhasEvolucao(d.resp);
       const url = new URL(d.url, location.href).href;
       if (A && /^https:\/\/producao-tasy\.acsc\.org\.br\/TasyAppServer\/resources\/service\/(DataSourceProvider|WCPanelDataProvider)\/getDataSource$/.test(url) && d.metodo === "POST") {
         const contexto = A.contextoLido(d.corpo, l);
@@ -249,19 +291,21 @@
         await guardarBusca({ url, corpo: d.corpo, cab: d.cab || {}, em: Date.now() });
         setTimeout(() => descobrirCampos(l), 1500);
         if (TOPO) repetir(); else enviar({ tipo: "checarTasyTopo" });
-      } else if (l?.length && "DS_EVOLUCAO" in l[0]) {
+      } else if (l?.length && l.some((r) => r && ("DS_EVOLUCAO" in r || "DS_TEXTO" in r || "DS_NOTA" in r || "NR_SEQ_EVOLUCAO" in r || "DT_EVOLUCAO" in r))) {
         await notasDaTela(d.corpo, l);
-        // Notas clínicas aberta à mão: aprende o pedido (troca o nº do paciente por um marcador)
-        const { tasyEstado = {}, tasyNotasModelo, tasyAgendaCache = {} } = await chrome.storage.local.get(["tasyEstado", "tasyNotasModelo", "tasyAgendaCache"]);
-        const exames = [...Object.values(tasyEstado), ...Object.values(tasyAgendaCache).flatMap((c) => c.linhas || [])];
-        const m = R.aprenderModelo(d.corpo, exames);
+        // Notas clínicas aberta: aprende o pedido (troca o nº do paciente por um marcador)
+        const { tasyEstado = {}, tasyNotasModelo, tasyAgendaCache = {}, tasyNotasTela, tasyAbrirNota } =
+          await chrome.storage.local.get(["tasyEstado", "tasyNotasModelo", "tasyAgendaCache", "tasyNotasTela", "tasyAbrirNota"]);
+        const extras = [tasyNotasTela, tasyAbrirNota].filter(Boolean).map((x) => ({ id: x.cacheId || "", pessoa: x.pessoa, atendimento: x.atendimento }));
+        const exames = [...extras, ...Object.values(tasyEstado), ...Object.values(tasyAgendaCache).flatMap((c) => c.linhas || [])];
+        const m = R.aprenderModelo(d.corpo, exames, l);
         if (m) {
           if (!tasyNotasModelo) log("aprendi a ler as notas clínicas ✓ (a partir de agora busco sozinho)");
-          if (m.marcas.includes("PESSOA") || !tasyNotasModelo?.marcas?.includes("PESSOA"))
+          if (!tasyNotasModelo || m.marcas.includes("PESSOA") || !tasyNotasModelo?.marcas?.includes("PESSOA"))
             await chrome.storage.local.set({ tasyNotasModelo: { url, corpo: m.corpo, cab: d.cab || {}, marcas: m.marcas, em: Date.now() } });
-          const ex = exames.find((x) => x.id === m.de);
+          const ex = exames.find((x) => x.id && x.id === m.de);
           if (ex) enviar({ tipo: "tasyNotas", id: ex.id, resumo: resumirNotasComLog(l) });
-        } else if (!tasyNotasModelo) log("notas clínicas vistas, mas o paciente não está na lista da Gestão de exames — abra as notas de um paciente da lista");
+        } else if (!tasyNotasModelo) log("notas clínicas vistas, mas ainda sem identificador — abra as notas de um paciente da lista");
       }
     }
     if (!d.mapa || /\.(js|css|png|svg|woff2?|html)(\?|$)/i.test(d.url)) return;
@@ -272,12 +316,17 @@
   });
 
   // 0.30: plano B — o painel pediu para abrir Notas clínicas + Ctrl+F8 deste paciente; junta as listas que a TELA do TASY
-  // carregar (com e sem Ctrl+F8) e guarda o resumo para o modal. Só aceita resposta cujo pedido traz o nº do paciente.
+  // carregar (com e sem Ctrl+F8) e guarda o resumo para o modal.
   const telaLinhas = new Map();
-  const temNum = (s, n) => !!n && String(n).length >= 5 && new RegExp(`(?<![0-9])${n}(?![0-9])`).test(String(s));
+  const temNum = (s, n) => !!n && String(n).length >= 3 && new RegExp(`(?<![0-9])${n}(?![0-9])`).test(String(s));
   async function notasDaTela(corpo, linhas) {
     const { tasyNotasTela: t } = await chrome.storage.local.get("tasyNotasTela");
-    if (!t || Date.now() - t.pedidoEm > 3 * 60000 || !(temNum(corpo, t.pessoa) || temNum(corpo, t.atendimento))) return;
+    if (!t || Date.now() - t.pedidoEm > 3 * 60000) return;
+    const bateCorpo = temNum(corpo, t.pessoa) || temNum(corpo, t.atendimento);
+    const bateLinha = Array.isArray(linhas) && linhas.some((r) =>
+      (t.pessoa && String(r?.CD_PESSOA_FISICA || "") === String(t.pessoa)) ||
+      (t.atendimento && String(r?.NR_ATENDIMENTO || "") === String(t.atendimento)));
+    if (!bateCorpo && !bateLinha && Date.now() - t.pedidoEm > 45000) return;
     const juntas = R.unirEvolucoes(telaLinhas.get(t.pedidoEm) || [], linhas);
     telaLinhas.clear(); telaLinhas.set(t.pedidoEm, juntas);
     const resumo = resumirNotasComLog(juntas);
@@ -288,26 +337,34 @@
 
   // notas clínicas de um paciente, com o pedido aprendido (só leitura)
   async function buscarNotas(ex) {
-    const { tasyNotasModelo: mo } = await chrome.storage.local.get("tasyNotasModelo");
+    const { tasyNotasModelo: mo, tasyCabAtual, tasyBusca } = await chrome.storage.local.get(["tasyNotasModelo", "tasyCabAtual", "tasyBusca"]);
     if (!mo) return { erro: "sem modelo" };
+    if (tasyCabAtual && typeof tasyCabAtual === "object") cabAtual = { ...tasyCabAtual, ...cabAtual };
+    const cabs = { "Content-Type": "application/json", ...(mo?.cab || {}), ...(tasyBusca?.cab || {}), ...cabAtual };
     const erro = R.erroModeloNotas(mo, ex);
     if (erro) return { erro };
     const agora = Date.now();
     const listas = [];
+    let ultimoErro = "";
     for (const body of R.corposNotas(mo, ex, agora)) {
-      const r = await fetch(mo.url, { method: "POST", credentials: "include", cache: "no-store",
-        headers: cabecalhos(mo), body, signal: AbortSignal.timeout(12000) });
-      if (r.status === 401 || r.status === 403) {
-        enviar({ tipo: "tasySessao", ok: false });
-        if (TOPO) login.recarregar();
+      try {
+        const r = await fetch(mo.url, { method: "POST", credentials: "include", cache: "no-store",
+          headers: cabs, body, signal: AbortSignal.timeout(12000) });
+        if (r.status === 401 || r.status === 403) {
+          enviar({ tipo: "tasySessao", ok: false });
+          if (TOPO) login.recarregar();
+        }
+        if (!r.ok) { ultimoErro = "HTTP " + r.status; continue; }
+        const l = extrairLinhasEvolucao(await r.text());
+        if (!Array.isArray(l)) { ultimoErro = "Resposta de notas inválida (sessão do TASY ou formato da lista)."; continue; }
+        listas.push(l);
+      } catch (e) {
+        ultimoErro = e.message || "falha na consulta";
       }
-      if (!r.ok) return { erro: "HTTP " + r.status };
-      const l = linhasDe(await r.text());
-      if (!Array.isArray(l)) return { erro: "Resposta de notas inválida (sessão do TASY ou formato da lista)." };
-      listas.push(l);
     }
+    if (!listas.length) return { erro: ultimoErro || "Nenhuma consulta de notas respondeu no TASY." };
     const unidas = R.unirEvolucoes(...listas);
-    return { resumo: resumirNotasComLog(unidas), motivo: `${unidas.length} nota(s) após união das consultas sem/com Ctrl+F8; sem texto disponível no período de até 90 dias` };
+    return { resumo: resumirNotasComLog(unidas), motivo: `${unidas.length} nota(s) após união das consultas; sem texto disponível no período de até 90 dias` };
   }
 
   function resumirNotasComLog(linhas) {

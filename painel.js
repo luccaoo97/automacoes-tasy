@@ -117,13 +117,13 @@ async function guardar(chave, valor) {
 const lerDemo = (chave) => { try { return JSON.parse(localStorage.getItem("painel." + chave)); } catch { return null; } };
 
 // ---------- estado da tela ----------
-const ui = { tipo: "TC", laudados: false, busca: "", cartao: "", col: "", asc: false };
-const laudadosPorTipo = { TC: false, US: true };
+const ui = { area: "gestao", tipo: "TC", filtroExame: "todos", laudados: false, busca: "", cartao: "", col: "", asc: false };
+const laudadosPorTipo = { TC: false, US: true, porExame: false };
 let D = null, LINHAS = [];
 function carregarColunasGestao(origem) {
   carregarColunas(gestaoCols, origem);
   const nativa = D?.tasyCampos?.colunasUS;
-  if (ui.tipo === "US" && !Array.isArray(origem.painelColunas) && Array.isArray(nativa)) {
+  if (ui.area === "gestao" && ui.tipo === "US" && !Array.isArray(origem.painelColunas) && Array.isArray(nativa)) {
     const conhecidas = [...new Set(nativa.filter((k) => ORDEM_PADRAO.includes(k)))];
     if (conhecidas.includes("nome") && conhecidas.includes("exame")) ordemCols = [...conhecidas, ...ORDEM_PADRAO.filter((k) => !conhecidas.includes(k))];
   }
@@ -137,19 +137,29 @@ const CARTOES = [
   ["laudado", "Laudados", "var(--st-laudado)", (l) => laudado(l)],
 ];
 
+function naAbaAtual(l) {
+  if (ui.area === "porExame") return R.exameTcFiltro(l, ui.filtroExame);
+  return !ui.tipo || l.tipo === ui.tipo;
+}
+
 function filtrar(linhas) {
   const b = R.sem(ui.busca);
   const cartao = CARTOES.find((c) => c[0] === ui.cartao);
   const out = linhas.filter((l) =>
-    (!ui.tipo || l.tipo === ui.tipo) &&
+    naAbaAtual(l) &&
     (cartao ? cartao[3](l) : (ui.laudados || !laudado(l))) &&
-    (!b || R.sem([l.nome, l.exame, l.clinico, l.prescritor, l.notas?.resumo].join(" ")).includes(b)));
+    (!b || R.sem([l.nome, l.exame, l.clinico, l.prescritor, l.notas?.resumo, ...(l.notas?.pareceresRadiologia || []).map((p) => `${p.tipo || ""} ${p.texto || ""}`)].join(" ")).includes(b)));
   if (!ui.col) return R.ordenarPainel(out);
   const f = COLS[ui.col].ord;
   return out.sort((x, y) => { const a = f(x), c = f(y); return (a > c ? 1 : a < c ? -1 : 0) * (ui.asc ? 1 : -1); });
 }
 
 // ---------- desenho ----------
+const ROTULOS_FILTRO_EXAME = {
+  todos: "TC Abdome + Tórax",
+  abdome: "TC de Abdome",
+  torax: "TC de Tórax (inclui AngioTC)",
+};
 function desenharTopo() {
   const agora = Date.now();
   const chip = (el, ok, caiu, ultima, temBusca) => {
@@ -172,7 +182,16 @@ function desenharTopo() {
 
   $("cartoes").innerHTML = CARTOES.map(([k, rot, cor, f]) =>
     `<div class="cartao ${ui.cartao === k ? "ativo" : ""}" data-k="${esc(k)}" style="--cor:${cor}">
-       <div class="n">${LINHAS.filter((l) => (!ui.tipo || l.tipo === ui.tipo) && f(l)).length}</div><div class="r">${rot}</div></div>`).join("");
+       <div class="n">${LINHAS.filter((l) => naAbaAtual(l) && f(l)).length}</div><div class="r">${rot}</div></div>`).join("");
+
+  if ($("segFiltroExame")) {
+    document.querySelectorAll("#segFiltroExame button").forEach((bt) => {
+      const ch = bt.dataset.exame;
+      const qtd = LINHAS.filter((l) => R.exameTcFiltro(l, ch) && (ui.laudados || !laudado(l))).length;
+      bt.innerHTML = `${esc(ROTULOS_FILTRO_EXAME[ch] || ch)}<span class="qtd-exame">${qtd}</span>`;
+      bt.classList.toggle("ativo", ui.filtroExame === ch);
+    });
+  }
 }
 
 function desenharCabecalho() {
@@ -188,7 +207,9 @@ function desenhar() {
   esconderDica();   // a célula embaixo do mouse vai ser trocada
   desenharTopo();
   desenharCabecalho();
-  $("tabela").classList.toggle("gestao-us", ui.tipo === "US");
+  $("segTipo").hidden = ui.area !== "gestao";
+  if ($("segFiltroExame")) $("segFiltroExame").hidden = ui.area !== "porExame";
+  $("tabela").classList.toggle("gestao-us", ui.area === "gestao" && ui.tipo === "US");
   $("verLaudados").checked = ui.laudados;
   const vis = filtrar(LINHAS);
   $("conta").textContent = `${vis.length} de ${LINHAS.length} exames`;
@@ -199,24 +220,39 @@ function desenhar() {
     colunasVisiveis(gestaoCols).map((k) => `<td class="${COLS[k].cls || ""}">${COLS[k].html(l)}</td>`).join("") + "</tr>").join("");
 }
 
-// ---------- Modal compartilhado: médicas completas ou últimas notas disponíveis ----------
+// ---------- Modal compartilhado: médicas completas + 2 últimos pareceres da radiologia ----------
+function htmlPareceresRadiologia(notas) {
+  const pareceres = R.extrairPareceresRadiologia ? R.extrairPareceresRadiologia(notas) : (notas?.pareceresRadiologia || []).slice(0, 2);
+  if (!pareceres.length) {
+    return `<div class="pareceres-rad"><h3><span class="badge-rad">Radiologia</span> Últimos pareceres da radiologia (0/2)</h3><p class="sub">Nenhum parecer da radiologia identificado nas notas clínicas deste paciente.</p></div>`;
+  }
+  return `<div class="pareceres-rad"><h3><span class="badge-rad">Radiologia</span> Últimos pareceres da radiologia publicados (${pareceres.length}/2)</h3>` +
+    pareceres.map((u, idx) =>
+      `<p class="sub evo"><b>${idx + 1}º parecer mais recente</b> · ${esc([fmtDH(u.quando), u.tipo || "Parecer Radiologia", titulo(u.quem)].filter(Boolean).join(" · "))}</p><div class="caixa nota-formatada">${R.formatarNota(u.original ?? u.texto)}</div>`
+    ).join("") + `</div>`;
+}
 function htmlEvolucoes(notas) {
+  const blocoRad = htmlPareceresRadiologia(notas);
   const todas = (notas?.evolucoes || (notas?.ultima ? [notas.ultima] : []));
   const medicas = todas.filter((u) => u.medica ?? /m[eé]dic/i.test(u.tipo || ""));
   const evs = (medicas.length ? medicas : todas)
     .sort((a, b) => (b.quando || 0) - (a.quando || 0)).slice(0, 5);
-  return evs.length ? (medicas.length ? `<h3>Últimas evoluções médicas (${evs.length})</h3>` :
+  const blocoEvs = evs.length ? (medicas.length ? `<h3>Últimas evoluções médicas (${evs.length})</h3>` :
     `<h3>Últimas notas (${evs.length})</h3><p class="sub">não deu para separar as médicas — mostrando as 5 últimas notas</p>`) + evs.map((u) =>
     `<p class="sub evo">${esc([fmtDH(u.quando), u.tipo || "tipo não informado", titulo(u.quem)].filter(Boolean).join(" · "))}</p><div class="caixa nota-formatada">${R.formatarNota(u.original ?? u.texto)}</div>`).join("")
     : `<p class="sub">sem evoluções médicas recentes</p>`;
+  return blocoRad + blocoEvs;
 }
 // 0.30: plano B — leitura direta vazia ou com erro → abre Notas clínicas no TASY com Ctrl+F8 (uma vez por modal)
 let modalPaciente = null;
-const semNotas = (r) => !r?.ok || !(r.resumo?.evolucoes?.length || r.resumo?.ultima);
+const semNotas = (r) => !r?.ok || !(r.resumo?.evolucoes?.length || r.resumo?.ultima || r.resumo?.pareceresRadiologia?.length);
 function planoBNotas(r, p, cacheId = "") {
   if (SEM_BACKEND || !p || (!p.pessoa && !p.atendimento) || !semNotas(r)) return;
   modalPaciente = { pessoa: String(p.pessoa || ""), atendimento: String(p.atendimento || ""), desde: Date.now() };
-  $("gNotaMsg").textContent = "Carregando o resumo das notas clínicas no TASY em segundo plano — aguarde aqui…";
+  $("gNotaMsg").textContent = "Carregando as notas clínicas no TASY em segundo plano — aguarde alguns segundos…";
+  if ($("gEvolucoes") && r?.erro) {
+    $("gEvolucoes").innerHTML = `<p class="sub">Abrindo Notas clínicas do paciente no TASY em segundo plano (Plano B + Ctrl+F8)… aguarde aqui.</p>`;
+  }
   chrome.runtime.sendMessage({ tipo: "notasPelaTela", pessoa: p.pessoa, atendimento: p.atendimento, cacheId })
     .then((x) => { if (x?.erro && modalPaciente && !$("gaveta").hidden) $("gNotaMsg").textContent = "Plano B não deu: " + x.erro; })
     .catch(() => {});
@@ -375,7 +411,7 @@ $("fonteMais").onclick = () => { aplicarFonte(fonte + 1); guardar("fontePainel",
 // ---------- eventos ----------
 $("linhas").addEventListener("click", (e) => {
   if (getSelection().toString()) return;   // estava selecionando texto
-  const celula = e.target.closest("td.nome"), tr = celula?.closest("tr[data-id]"); if (tr) abrirNotas(tr.dataset.id);
+  const tr = e.target.closest("tr[data-id]"); if (tr) abrirNotas(tr.dataset.id);
 });
 $("gFechar").onclick = fecharNotas;
 $("veu").onclick = fecharNotas;
@@ -398,7 +434,17 @@ $("segTipo").addEventListener("click", (e) => {
   document.querySelectorAll("#segTipo button").forEach((x) => x.classList.toggle("ativo", x === b));
   desenhar();
 });
-$("verLaudados").onchange = (e) => { ui.laudados = laudadosPorTipo[ui.tipo] = e.target.checked; desenhar(); };
+$("segFiltroExame")?.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-exame]"); if (!b) return;
+  ui.filtroExame = b.dataset.exame;
+  ui.cartao = "";
+  desenhar();
+});
+$("verLaudados").onchange = (e) => {
+  const chave = ui.area === "porExame" ? "porExame" : ui.tipo;
+  ui.laudados = laudadosPorTipo[chave] = e.target.checked;
+  desenhar();
+};
 $("busca").oninput = (e) => { ui.busca = e.target.value; desenhar(); };
 $("cartoes").addEventListener("click", (e) => {
   const c = e.target.closest(".cartao"); if (!c) return;
@@ -570,17 +616,29 @@ function escolherDia(data) {
   agendaMensagem = "";
   return atualizarAgenda();
 }
-function mudarArea(agenda) {
-  $("gestao").hidden = agenda; $("agenda").hidden = !agenda;
-  $("checar").hidden = agenda;
-  for (const [id, ativo] of [["abaGestao", !agenda], ["abaAgenda", agenda]]) {
-    $(id).classList.toggle("ativo", ativo); $(id).setAttribute("aria-pressed", String(ativo));
+function mudarArea(area) {
+  const ehAgenda = area === "agenda";
+  if (!ehAgenda) {
+    ui.area = area;
+    ui.laudados = laudadosPorTipo[area === "porExame" ? "porExame" : ui.tipo];
+    ui.cartao = "";
+    carregarColunasGestao(D || {});
+  }
+  $("gestao").hidden = ehAgenda;
+  $("agenda").hidden = !ehAgenda;
+  $("checar").hidden = ehAgenda;
+  for (const [id, ativo] of [["abaGestao", area === "gestao"], ["abaPorExame", area === "porExame"], ["abaAgenda", ehAgenda]]) {
+    if (!$(id)) continue;
+    $(id).classList.toggle("ativo", ativo);
+    $(id).setAttribute("aria-pressed", String(ativo));
   }
   fecharNotas(); esconderDica();
-  if (agenda) atualizarAgenda();
+  if (ehAgenda) atualizarAgenda();
+  else desenhar();
 }
-$("abaGestao").onclick = () => mudarArea(false);
-$("abaAgenda").onclick = () => mudarArea(true);
+$("abaGestao").onclick = () => mudarArea("gestao");
+if ($("abaPorExame")) $("abaPorExame").onclick = () => mudarArea("porExame");
+$("abaAgenda").onclick = () => mudarArea("agenda");
 const horaAgenda = (em) => em ? new Date(em).toLocaleTimeString("pt-BR", { timeZone: A.FUSO, hour: "2-digit", minute: "2-digit" }) : "—";
 function desenharAgenda() {
   const colunas = colunasVisiveis(agendaCols);

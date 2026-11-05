@@ -19,7 +19,7 @@ function Ler-TokenSalvo {
     if ($env:GITHUB_TOKEN) { return $env:GITHUB_TOKEN.Trim() }
     if (Test-Path $TokArq) {
         try {
-            $s = Get-Content $TokArq -Raw | ConvertTo-SecureString
+            $s = (Get-Content $TokArq -Raw).Trim() | ConvertTo-SecureString
             return [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)).Trim()
         } catch {}
     }

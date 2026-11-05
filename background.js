@@ -79,7 +79,7 @@ function guardarNotas(id, resumo) {
   const tarefa = filaNotas.catch(() => {}).then(async () => {
     const { tasyNotas = {} } = await chrome.storage.local.get("tasyNotas");
     for (const [k, v] of Object.entries(tasyNotas)) if (Date.now() - v.em > 48 * 36e5) delete tasyNotas[k];
-    tasyNotas[id] = { ...(resumo || { v: 4, evolucoes: [], resumo: "", n: 0 }), em: Date.now() };
+    tasyNotas[id] = { ...(resumo || { v: 6, evolucoes: [], pareceresRadiologia: [], resumo: "", n: 0 }), em: Date.now() };
     await chrome.storage.local.set({ tasyNotas });
   });
   filaNotas = tarefa;
@@ -107,7 +107,7 @@ async function buscarNotas(ex, detalhar = false) {
 async function completarNotas(estado) {
   const { tasyNotas = {} } = await chrome.storage.local.get("tasyNotas");
   const faltam = Object.values(estado).filter((e) => e.naTela && e.etapa !== "laudado" && e.etapa !== "cancelado" &&
-    (!tasyNotas[e.id] || tasyNotas[e.id].v !== 4 || Date.now() - tasyNotas[e.id].em > 6 * 36e5)).slice(0, 3);
+    (!tasyNotas[e.id] || tasyNotas[e.id].v !== 6 || Date.now() - tasyNotas[e.id].em > 6 * 36e5)).slice(0, 3);
   for (const e of faltam) { await buscarNotas(e); await new Promise((r) => setTimeout(r, 1500)); }
 }
 
